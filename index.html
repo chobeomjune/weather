@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#f4f7fb" />
+  <title>오늘의 날씨</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="top-header">
+      <a href="#" class="logo" aria-label="날씨 홈">
+        <span class="logo-icon">☀</span>
+        <span>오늘의 날씨</span>
+      </a>
+
+      <button class="icon-button location-button" id="locationBtn"
+        type="button" aria-label="현재 위치 날씨">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z"></path>
+          <circle cx="12" cy="10" r="2.5"></circle>
+        </svg>
+      </button>
+    </header>
+
+    <section class="search-section">
+      <form class="search-form" id="searchForm">
+        <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="10.8" cy="10.8" r="6.8"></circle>
+          <path d="m16 16 5 5"></path>
+        </svg>
+        <input
+          type="search"
+          id="cityInput"
+          placeholder="도시 이름을 검색하세요"
+          autocomplete="off"
+          aria-label="도시 검색"
+        />
+        <button type="submit" class="search-button">검색</button>
+      </form>
+      <p class="search-hint">예: 서울, 부산, 제주, Tokyo, New York</p>
+    </section>
+
+    <main>
+      <section class="weather-card current-card">
+        <div class="current-top">
+          <div>
+            <p class="eyebrow">현재 날씨</p>
+            <h1 id="cityName">서울</h1>
+            <p class="current-date" id="currentDate">날씨 정보를 불러오는 중...</p>
+          </div>
+          <div class="weather-visual" id="currentIcon" aria-hidden="true">🌤️</div>
+        </div>
+
+        <div class="current-main">
+          <div class="temperature" id="currentTemp">--<span>°</span></div>
+          <div class="current-description">
+            <h2 id="currentDescription">날씨 정보를 불러오는 중</h2>
+            <p>체감온도 <strong id="feelsLike">--°</strong></p>
+          </div>
+        </div>
+
+        <div class="weather-details">
+          <div class="detail-item">
+            <span class="detail-icon">💧</span>
+            <div>
+              <span class="detail-label">습도</span>
+              <strong id="humidity">--%</strong>
+            </div>
+          </div>
+          <div class="detail-item">
+            <span class="detail-icon">🌬️</span>
+            <div>
+              <span class="detail-label">풍속</span>
+              <strong id="windSpeed">-- km/h</strong>
+            </div>
+          </div>
+          <div class="detail-item">
+            <span class="detail-icon">🌧️</span>
+            <div>
+              <span class="detail-label">강수량</span>
+              <strong id="precipitation">-- mm</strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section forecast-section">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">시간별 예보</p>
+            <h2>오늘의 날씨</h2>
+          </div>
+          <span class="section-note">시간대별</span>
+        </div>
+
+        <div class="hourly-list" id="hourlyList">
+          <div class="loading-message">시간별 예보를 불러오는 중...</div>
+        </div>
+      </section>
+
+      <section class="section forecast-section">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">주간 예보</p>
+            <h2>7일간 날씨</h2>
+          </div>
+          <span class="section-note">최저 / 최고</span>
+        </div>
+
+        <div class="daily-list" id="dailyList">
+          <div class="loading-message">주간 예보를 불러오는 중...</div>
+        </div>
+      </section>
+
+      <div class="status-message" id="statusMessage" role="status" aria-live="polite"></div>
+    </main>
+
+    <footer class="footer">
+      <p>Weather data by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a></p>
+      <p>날씨 정보는 예보 모델에 따라 실제와 다를 수 있습니다.</p>
+    </footer>
+  </div>
+
+  <script>
+    const $ = (selector) => document.querySelector(selector);
+
+    const elements = {
+      cityName: $("#cityName"),
+      currentDate: $("#currentDate"),
+      currentIcon: $("#currentIcon"),
+      currentTemp: $("#currentTemp"),
+      currentDescription: $("#currentDescription"),
+      feelsLike: $("#feelsLike"),
+      humidity: $("#humidity"),
+      windSpeed: $("#windSpeed"),
+      precipitation: $("#precipitation"),
+      hourlyList: $("#hourlyList"),
+      dailyList: $("#dailyList"),
+      statusMessage: $("#statusMessage"),
+      cityInput: $("#cityInput"),
+      searchForm: $("#searchForm"),
+      locationBtn: $("#locationBtn")
+    };
+
+    const weatherInfo = {
+      0:  { text: "맑음", icon: "☀️" },
+      1:  { text: "대체로 맑음", icon: "🌤️" },
+      2:  { text: "구름 조금", icon: "⛅" },
+      3:  { text: "흐림", icon: "☁️" },
+      45: { text: "안개", icon: "🌫️" },
+      48: { text: "짙은 안개", icon: "🌫️" },
+      51: { text: "약한 이슬비", icon: "🌦️" },
+      53: { text: "이슬비", icon: "🌦️" },
+      55: { text: "강한 이슬비", icon: "🌧️" },
+      56: { text: "약한 어는 이슬비", icon: "🌧️" },
+      57: { text: "강한 어는 이슬비", icon: "🌧️" },
+      61: { text: "약한 비", icon: "🌧️" },
+      63: { text: "비", icon: "🌧️" },
+      65: { text: "강한 비", icon: "🌧️" },
+      66: { text: "약한 어는 비", icon: "🌧️" },
+      67: { text: "강한 어는 비", icon: "🌧️" },
+      71: { text: "약한 눈", icon: "🌨️" },
+      73: { text: "눈", icon: "❄️" },
+      75: { text: "강한 눈", icon: "❄️" },
+      77: { text: "싸락눈", icon: "🌨️" },
+      80: { text: "약한 소나기", icon: "🌦️" },
+      81: { text: "소나기", icon: "🌧️" },
+      82: { text: "강한 소나기", icon: "⛈️" },
+      85: { text: "약한 눈 소나기", icon: "🌨️" },
+      86: { text: "강한 눈 소나기", icon: "❄️" },
+      95: { text: "뇌우", icon: "⛈️" },
+      96: { text: "우박을 동반한 뇌우", icon: "⛈️" },
+      99: { text: "강한 우박 뇌우", icon: "⛈️" }
+    };
+
+    function getWeather(code) {
+      return weatherInfo[code] || { text: "날씨 정보", icon: "🌡️" };
+    }
+
+    function formatTemperature(value) {
+      return `${Math.round(value)}°`;
+    }
+
+    function formatDate(dateString, options = {}) {
+      const date = new Date(dateString);
+      return new Intl.DateTimeFormat("ko-KR", {
+        timeZone: "Asia/Seoul",
+        ...options
+      }).format(date);
+    }
+
+    function showStatus(message, type = "") {
+      elements.statusMessage.textContent = message;
+      elements.statusMessage.className = `status-message ${type}`;
+    }
+
+    function setLoading() {
+      elements.currentDescription.textContent = "날씨 정보를 불러오는 중...";
+      elements.currentTemp.innerHTML = '--<span>°</span>';
+      elements.currentIcon.textContent = "🌤️";
+      elements.hourlyList.innerHTML =
+        '<div class="loading-message">시간별 예보를 불러오는 중...</div>';
+      elements.dailyList.innerHTML =
+        '<div class="loading-message">주간 예보를 불러오는 중...</div>';
+      showStatus("");
+    }
+
+    async function searchCity(cityName) {
+      const query = cityName.trim();
+
+      if (!query) {
+        showStatus("검색할 도시 이름을 입력해 주세요.", "error");
+        elements.cityInput.focus();
+        return;
+      }
+
+      setLoading();
+      showStatus(`${query} 날씨를 검색하고 있습니다...`);
+
+      try {
+        const geocodingUrl =
+          "https://geocoding-api.open-meteo.com/v1/search" +
+          `?name=${encodeURIComponent(query)}` +
+          "&count=10&language=ko&format=json";
+
+        const geoResponse = await fetch(geocodingUrl);
+
+        if (!geoResponse.ok) {
+          throw new Error("도시 검색 요청에 실패했습니다.");
+        }
+
+        const geoData = await geoResponse.json();
+
+        if (!geoData.results || geoData.results.length === 0) {
+          throw new Error("도시를 찾을 수 없습니다. 다른 이름으로 검색해 주세요.");
+        }
+
+        const city = geoData.results.find(
+          item => item.country_code === "KR"
+        ) || geoData.results[0];
+
+        const locationName = [
+          city.name,
+          city.admin1 && city.admin1 !== city.name ? city.admin1 : "",
+          city.country
+        ].filter(Boolean).join(", ");
+
+        await loadWeather(city.latitude, city.longitude, locationName);
+      } catch (error) {
+        showStatus(error.message || "날씨 정보를 가져오지 못했습니다.", "error");
+        elements.hourlyList.innerHTML =
+          '<div class="empty-message">시간별 예보를 표시할 수 없습니다.</div>';
+        elements.dailyList.innerHTML =
+          '<div class="empty-message">주간 예보를 표시할 수 없습니다.</div>';
+      }
+    }
+
+    async function loadWeather(latitude, longitude, locationName) {
+      try {
+        const params = new URLSearchParams({
+          latitude,
+          longitude,
+          current: [
+            "temperature_2m",
+            "relative_humidity_2m",
+            "apparent_temperature",
+            "precipitation",
+            "weather_code",
+            "wind_speed_10m",
+            "is_day"
+          ].join(","),
+          hourly: [
+            "temperature_2m",
+            "weather_code",
+            "precipitation_probability"
+          ].join(","),
+          daily: [
+            "weather_code",
+            "temperature_2m_max",
+            "temperature_2m_min",
+            "precipitation_probability_max"
+          ].join(","),
+          timezone: "auto",
+          forecast_days: "7"
+        });
+
+        const response = await fetch(
+          `https://api.open-meteo.com/v1/forecast?${params}`
+        );
+
+        if (!response.ok) {
+          throw new Error("날씨 API 요청에 실패했습니다.");
+        }
+
+        const data = await response.json();
+
+        if (!data.current || !data.hourly || !data.daily) {
+          throw new Error("날씨 데이터를 읽을 수 없습니다.");
+        }
+
+        renderCurrentWeather(data.current, locationName);
+        renderHourlyWeather(data.hourly, data.current.time);
+        renderDailyWeather(data.daily);
+
+        showStatus(`마지막 업데이트: ${formatDate(data.current.time, {
+          hour: "2-digit",
+          minute: "2-digit"
+        })}`, "success");
+      } catch (error) {
+        showStatus(error.message || "날씨 정보를 불러오지 못했습니다.", "error");
+        throw error;
+      }
+    }
+
+    function renderCurrentWeather(current, locationName) {
+      const weather = getWeather(current.weather_code);
+
+      elements.cityName.textContent = locationName;
+      elements.currentDate.textContent = formatDate(current.time, {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        weekday: "long",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+
+      elements.currentIcon.textContent = weather.icon;
+      elements.currentTemp.innerHTML =
+        `${Math.round(current.temperature_2m)}<span>°</span>`;
+      elements.currentDescription.textContent = weather.text;
+      elements.feelsLike.textContent =
+        formatTemperature(current.apparent_temperature);
+      elements.humidity.textContent =
+        `${Math.round(current.relative_humidity_2m)}%`;
+      elements.windSpeed.textContent =
+        `${Math.round(current.wind_speed_10m)} km/h`;
+      elements.precipitation.textContent =
+        `${Number(current.precipitation).toFixed(1)} mm`;
+    }
+
+    function renderHourlyWeather(hourly, currentTime) {
+      const currentHour = new Date(currentTime).getHours();
+      const currentDate = currentTime.slice(0, 10);
+
+      let startIndex = hourly.time.findIndex(time =>
+        time.startsWith(currentDate) &&
+        Number(time.slice(11, 13)) >= currentHour
+      );
+
+      if (startIndex < 0) startIndex = 0;
+
+      const hours = hourly.time.slice(startIndex, startIndex + 12);
+
+      if (!hours.length) {
+        elements.hourlyList.innerHTML =
+          '<div class="empty-message">시간별 예보가 없습니다.</div>';
+        return;
+      }
+
+      elements.hourlyList.innerHTML = hours.map((time, index) => {
+        const dataIndex = startIndex + index;
+        const weather = getWeather(hourly.weather_code[dataIndex]);
+        const hour = Number(time.slice(11, 13));
+        const label = index === 0
+          ? "지금"
+          : `${hour.toString().padStart(2, "0")}시`;
+
+        return `
+          <article class="hourly-item">
+            <span class="hourly-time">${label}</span>
+            <span class="hourly-icon" aria-hidden="true">${weather.icon}</span>
+            <strong class="hourly-temp">
+              ${Math.round(hourly.temperature_2m[dataIndex])}°
+            </strong>
+            <span class="hourly-rain">
+              ${hourly.precipitation_probability[dataIndex] ?? 0}%
+            </span>
+          </article>
+        `;
+      }).join("");
+    }
+
+    function renderDailyWeather(daily) {
+      elements.dailyList.innerHTML = daily.time.map((date, index) => {
+        const weather = getWeather(daily.weather_code[index]);
+        const dayLabel = index === 0
+          ? "오늘"
+          : formatDate(date, { weekday: "short" });
+
+        const rainProbability =
+          daily.precipitation_probability_max?.[index] ?? 0;
+
+        return `
+          <article class="daily-item">
+            <span class="daily-day">${dayLabel}</span>
+            <span class="daily-icon" aria-hidden="true">${weather.icon}</span>
+            <span class="daily-description">${weather.text}</span>
+            <span class="daily-rain">💧 ${rainProbability}%</span>
+            <div class="daily-temperatures">
+              <span class="low-temp">
+                ${Math.round(daily.temperature_2m_min[index])}°
+              </span>
+              <div class="temperature-bar">
+                <span></span>
+              </div>
+              <span class="high-temp">
+                ${Math.round(daily.temperature_2m_max[index])}°
+              </span>
+            </div>
+          </article>
+        `;
+      }).join("");
+    }
+
+    elements.searchForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      searchCity(elements.cityInput.value);
+    });
+
+    elements.locationBtn.addEventListener("click", () => {
+      if (!navigator.geolocation) {
+        showStatus("이 브라우저에서는 위치 기능을 사용할 수 없습니다.", "error");
+        return;
+      }
+
+      showStatus("현재 위치를 확인하고 있습니다...");
+
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude, longitude } = position.coords;
+
+          try {
+            await loadWeather(latitude, longitude, "현재 위치");
+          } catch (error) {
+            showStatus("현재 위치의 날씨를 불러오지 못했습니다.", "error");
+          }
+        },
+        () => {
+          showStatus(
+            "위치 권한을 허용해 주세요. 또는 도시 이름을 검색해 주세요.",
+            "error"
+          );
+        },
+        {
+          enableHighAccuracy: false,
+          timeout: 10000,
+          maximumAge: 300000
+        }
+      );
+    });
+
+    // 첫 실행 시 서울 날씨 표시
+    searchCity("서울");
+  </script>
+</body>
+</html>
